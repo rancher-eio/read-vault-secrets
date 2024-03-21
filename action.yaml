@@ -1,0 +1,24 @@
+---
+name: Read Vault Secrets
+description: "... it reads secrets from Vault?"
+inputs:
+  address:
+    description: "the address of a deployed vault server"
+    required: true
+  secrets:
+    description: "the secrets to fetch from the vault server"
+    required: false
+    default: secret/data/github-actions/test status
+runs:
+  using: composite
+  steps:
+    - name: Read Secrets from Vault"
+      uses: hashicorp/vault-action@v3
+      id: vault
+      with:
+        method: jwt
+        url: ${{ inputs.address }}
+        path: ${{ github.repository_owner }}
+        role: ${{ github.event.repository.name }}
+        secrets: ${{ inputs.secrets }}
+        exportEnv: true
