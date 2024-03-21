@@ -4,7 +4,8 @@ description: "... it reads secrets from Vault?"
 inputs:
   address:
     description: "the address of a deployed vault server"
-    required: true
+    required: false
+    default: https://vault.rancher.kitchen
   secrets:
     description: "the secrets to fetch from the vault server"
     required: false

@@ -19,7 +19,6 @@ jobs:
     - name: "Read some Secrets"
       uses: rancher-eio/read-vault-secrets@main
       with:
-        address: ${{ vars.VAULT_ADDR }}
         secrets: |
           secret/data/github/repo/${{ github.repository }}/dockerhub/credentials username | DOCKER_USERNAME ;
           secret/data/github/repo/${{ github.repository }}/dockerhub/credentials password | DOCKER_PASSWORD
