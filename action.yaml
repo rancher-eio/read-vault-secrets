@@ -22,4 +22,4 @@ runs:
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
-        exportEnv: true
+        exportEnv: false
