@@ -10,10 +10,13 @@ inputs:
     description: "the secrets to fetch from the vault server"
     required: false
     default: secret/data/github-actions/test status
+# outputs:
+#   PROOF_OF_CONCEPT:
+#     description: "the secret fetched from vault"
+#     value: ${{ steps.vault.outputs.PROOF_OF_CONCEPT }}
 outputs:
-  PROOF_OF_CONCEPT:
-    description: "the secret fetched from vault"
-    value: ${{ steps.vault.outputs.PROOF_OF_CONCEPT }}
+  secrets_json:  
+    description: "All secrets in JSON format"
 runs:
   using: composite
   steps:
@@ -27,3 +30,5 @@ runs:
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
         exportEnv: false
+        outputType: json
+        
