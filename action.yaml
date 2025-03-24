@@ -37,15 +37,26 @@ runs:
       run: |
         secrets_json='{}'
         VAULT_OUTPUTS='${{ toJSON(steps.vault.outputs) }}'
-        echo "$VAULT_OUTPUTS" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-          if [[ "$key" != "secrets" && "$key" != "token" ]]; then
-            echo "Processing secret: $key"
-            secrets_json=$(echo "$secrets_json" | jq --arg k "$key" --arg v "$value" '. + {($k): $v}')
-            echo "::add-mask::$value"
-          fi
+        
+        if ! echo "$VAULT_OUTPUTS" | jq empty; then
+          echo "❌ Invalid JSON received from Vault:"
+          echo "$VAULT_OUTPUTS"
+          exit 1
+        fi
+        CLEAN_JSON_OUTPUT=$(echo "$VAULT_OUTPUTS" | jq '
+          with_entries(
+            if .key | startswith("_") then
+              empty
+            else
+              .value |= (.data // .value)
+            end
+          )
+        ')
+         echo "$CLEAN_JSON_OUTPUT" | jq -r 'to_entries[] | .value' | while read -r value; do
+          echo "::add-mask::$value"
         done
-        echo "vault_data=${secrets_json}" >> $GITHUB_OUTPUT
-        echo "Final secrets JSON: ${secrets_json}"
+        echo "vault_data=$CLEAN_JSON_OUTPUT" >> $GITHUB_OUTPUT
+        echo "Processed secrets: $(echo "$CLEAN_JSON_OUTPUT" | jq -r 'keys | join(", ")')"
 
         
     # - name: Create JSON Output
