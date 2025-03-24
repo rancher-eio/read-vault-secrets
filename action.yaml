@@ -30,7 +30,13 @@ runs:
         # outputType: json
         exportEnv: true 
         #exportToken: false
-        
+
+     - name: Debug Available Outputs
+      shell: bash
+      run: |
+        echo "Available vault step outputs (this will not show secret values):"
+        echo '${{ toJSON(steps.vault.outputs) }}' | jq 'keys'
+ 
     - name: Create JSON Output
       id: create-json
       shell: bash
