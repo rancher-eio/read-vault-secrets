@@ -57,7 +57,12 @@ runs:
             fi
             escaped_value=$(echo "$value" | sed 's/"/\\"/g')
             JSON="${JSON}\"$name\":\"$escaped_value\""
+            
             unset "$name"
+            export -n "$name"
+            if [ -n "${!name+x}" ]; then
+              echo "Warning: Failed to unset $name variable"
+            fi
           fi
         done
         JSON="${JSON}}"
