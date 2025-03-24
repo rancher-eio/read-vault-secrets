@@ -28,7 +28,7 @@ runs:
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
         # outputType: json
-        exportEnv: true 
+        exportEnv: false 
         #exportToken: false
 
     - name: Debug Available Outputs
