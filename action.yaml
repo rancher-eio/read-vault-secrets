@@ -13,8 +13,7 @@ inputs:
 outputs:
   vault_data:
     description: "JSON containing the vault secrets"
-    value: ${{ steps.vault.outputs.data }}
-    #value: ${{ steps.create-json.outputs.json }}
+    value: ${{ steps.create-json.outputs.json }}
     
 runs:
   using: composite
@@ -28,9 +27,9 @@ runs:
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
-        outputType: json
-        exportEnv: false 
-        exportToken: false
+        # outputType: json
+        exportEnv: true 
+        #exportToken: false
         
     - name: Create JSON Output
       id: create-json
@@ -41,17 +40,21 @@ runs:
           if [ -z "$line" ]; then
             continue
           fi
-          name=$(echo "$line" | cut -d '|' -f 2 | xargs)
-          SECRET_NAMES+=("$name")
+          if [[ "$line" == *"|"* ]]; then
+            name=$(echo "$line" | cut -d '|' -f 2 | xargs)
+            SECRET_NAMES+=("$name")
+          else
+            name=$(basename "$line" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
+            SECRET_NAMES+=("$name")
+          fi
         done <<< "${{ inputs.secrets }}"
         
         JSON="{"
         FIRST=true
         for name in "${SECRET_NAMES[@]}"; do
-          value_expr='${{ steps.vault.outputs.'${name}' }}'
-          value=$(eval echo $value_expr)
-          
+          value="${!name}"
           if [ -n "$value" ]; then
+            # Mask the value
             echo "::add-mask::$value"
             if [ "$FIRST" = "true" ]; then
               FIRST=false
@@ -60,33 +63,28 @@ runs:
             fi
             escaped_value=$(echo "$value" | sed 's/"/\\"/g')
             JSON="${JSON}\"$name\":\"$escaped_value\""
-            
             unset "$name"
-            export -n "$name"
-            if [ -n "${!name+x}" ]; then
-              echo "Warning: Failed to unset $name variable"
-            fi
           fi
         done
         JSON="${JSON}}"
         echo "json=$JSON" >> $GITHUB_OUTPUT
         
-    - name: validate JSON Values
+    - name: validate JSON Access
       id: validate
       shell: bash
       run: |
-        echo "testing JSON extraction..."
+        echo "Testing JSON extraction within the composite action..."
         JSON_VALUE='${{ steps.create-json.outputs.json }}'
         echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
-        
         FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
         if [ -n "$FIRST_KEY" ]; then
           VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
           echo "::add-mask::$VALUE"
-          echo "✅ JSON extraction Successful for key: $FIRST_KEY"
+          echo "✅ Successfully verified JSON extraction for key: $FIRST_KEY"
           echo "Value length: ${#VALUE} characters"
         else
           echo "❌ Failed to extract any keys from JSON output"
+          echo "JSON output may be malformed: $JSON_VALUE"
           exit 1
         fi
         
@@ -95,4 +93,3 @@ runs:
       run: |
         echo "Vault output format check:"
         echo "Verify that PROOF_OF_CONCEPT: ${{ steps.create-json.outputs.PROOF_OF_CONCEPT != '' }}"
-            
