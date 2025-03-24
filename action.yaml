@@ -35,15 +35,15 @@ runs:
       id: export-json
       shell: bash
       run: |
-        echo 'JSON_ESCAPED<<EOF' >> $GITHUB_OUTPUT
-        echo '${{ toJSON(steps.vault.outputs) }}' >> $GITHUB_OUTPUT
-        echo 'EOF' >> $GITHUB_OUTPUT
-        echo "json=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -c '.' | sed 's/"/\\"/g')" >> $GITHUB_OUTPUT
+        echo "Available secrets from vault:"
+        echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]'
         for key in $(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]'); do
           value=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r --arg key "$key" '.[$key]')
-          echo "::add-mask::$value"
+          if [ -n "$value" ]; then
+            echo "::add-mask::$value"
+          fi
         done
- 
+        echo "data=${{ toJSON(steps.vault.outputs) }}" >> $GITHUB_ENV
     # - name: Create JSON Output
     #   id: create-json
     #   shell: bash
