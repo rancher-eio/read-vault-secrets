@@ -31,32 +31,41 @@ runs:
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
         # outputType: json
-        
-    - name: Debug Vault Output
-      shell: bash
-      run: |
-        echo "Vault output format check:"
-        echo "Has 'secrets' output: ${{ steps.vault.outputs.secrets != '' }}"
-        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.vault.outputs.PROOF_OF_CONCEPT != '' }}"
+        exportEnv: true 
+        #exportToken: false
         
     - name: Export Specific Secrets to Environment and as Outputs
       id: set-outputs
       shell: bash
       run: |
-        if [ -n "${{ steps.vault.outputs.PROOF_OF_CONCEPT }}" ]; then
-          echo "Using direct access to outputs"
-          echo "PROOF_OF_CONCEPT=${{ steps.vault.outputs.PROOF_OF_CONCEPT }}" >> $GITHUB_OUTPUT
-        elif [ -n "${{ steps.vault.outputs.secrets }}" ]; then
-          echo "Parsing secrets JSON"
-          echo '${{ steps.vault.outputs.secrets }}' | jq -r 'to_entries[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_OUTPUT"' | bash
+        if [[ "${{ inputs.secrets }}" == *"|"* ]]; then
+          SECRET_NAME=$(echo "${{ inputs.secrets }}" | cut -d '|' -f 2 | xargs)
         else
-          echo "No outputs found from vault action"
+          SECRET_NAME=$(basename "${{ inputs.secrets }}" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
+        fi
+        SECRET_VALUE="${!SECRET_NAME}"
+        if [ -n "$SECRET_VALUE" ]; then
+          echo "::add-mask::$SECRET_VALUE"
+          echo "$SECRET_NAME=$SECRET_VALUE" >> $GITHUB_OUTPUT
+          echo "Set output for $SECRET_NAME"
+          
+          unset "$SECRET_NAME"
+          echo "Cleared $SECRET_NAME from environment"
+        else
+          echo "Warning: No value found for $SECRET_NAME"
           exit 1
         fi
       # env:
-      #   SECRETS_JSON: ${{ steps.vault.outputs.secrets }}
+      #   SECRETS_JSON: ${{ steps.set-outputs.outputs.secrets }}
       # run: |
       #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \"::add-mask::"+.value+"\""' | bash
       #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_OUTPUT"' | bash
       #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_ENV"' | bash
       
+    - name: Debug Vault Output
+      shell: bash
+      run: |
+        echo "Vault output format check:"
+        echo "Has 'secrets' output: ${{ steps.set-outputs.outputs.secrets != '' }}"
+        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.set-outputs.outputs.PROOF_OF_CONCEPT != '' }}"
+        
