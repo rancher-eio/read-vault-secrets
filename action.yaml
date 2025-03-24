@@ -10,13 +10,18 @@ inputs:
     description: "the secrets to fetch from the vault server"
     required: false
     default: secret/data/github-actions/test status
+  export_env_vars:
+    description: "whether to export secret values as environment variables"
+    required: false
+    default: "true"
+outputs:
+  secret_values:
+    description: "JSON object containing the retrieved secrets"
+    value: ${{ steps.vault.outputs.secrets }}
 # outputs:
 #   PROOF_OF_CONCEPT:
 #     description: "the secret fetched from vault"
 #     value: ${{ steps.vault.outputs.PROOF_OF_CONCEPT }}
-# outputs:
-#   secrets_json:  
-#     description: "All secrets in JSON format"
 runs:
   using: composite
   steps:
@@ -32,9 +37,15 @@ runs:
         exportEnv: false
         # outputType: json
         
-    - name: Export Specific Secrets to Environment
+    - name: Export Specific Secrets to Environment and as Outputs
+      id: set-outputs
       shell: bash
       env:
         SECRETS_JSON: ${{ steps.vault.outputs.secrets }}
+        EXPORT_ENV: ${{ inputs.export_env_vars }}
       run: |
-        echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \"::add-mask::"+.value+"\"\necho \""+.key+"="+.value+"\" >> $GITHUB_ENV"' | bash        
+        echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \"::add-mask::"+.value+"\""' | bash
+        echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_OUTPUT"' | bash
+        if [ "$EXPORT_ENV" = "true" ]; then
+          echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_ENV"' | bash
+        fi        
