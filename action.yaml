@@ -10,10 +10,10 @@ inputs:
     description: "the secrets to fetch from the vault server"
     required: false
     default: secret/data/github-actions/test status
-outputs:
-  PROOF_OF_CONCEPT:
-    description: "the secret fetched from vault"
-    value: ${{ steps.vault.outputs.PROOF_OF_CONCEPT }}
+# outputs:
+#   PROOF_OF_CONCEPT:
+#     description: "the secret fetched from vault"
+#     value: ${{ steps.vault.outputs.PROOF_OF_CONCEPT }}
 # outputs:
 #   secrets_json:  
 #     description: "All secrets in JSON format"
@@ -32,3 +32,9 @@ runs:
         exportEnv: false
         # outputType: json
         
+    - name: Export Specific Secrets to Environment
+      shell: bash
+      env:
+        SECRETS_JSON: ${{ steps.vault.outputs.secrets }}
+      run: |
+        echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \"::add-mask::"+.value+"\"\necho \""+.key+"="+.value+"\" >> $GITHUB_ENV"' | bash        
