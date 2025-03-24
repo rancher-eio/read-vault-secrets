@@ -12,8 +12,8 @@ inputs:
     default: secret/data/github-actions/test status
 outputs:
   secret_values:
-    description: "JSON object containing the retrieved secrets"
-    value: ${{ steps.vault.outputs.secrets }}
+    description: "JSON containing the vault secrets"
+    value: ${{ steps.create-json.outputs.json }}
 # outputs:
 #   PROOF_OF_CONCEPT:
 #     description: "the secret fetched from vault"
@@ -34,38 +34,66 @@ runs:
         exportEnv: true 
         #exportToken: false
         
-    - name: Export Specific Secrets to Environment and as Outputs
-      id: set-outputs
+    - name: Create JSON Output
+      id: create-json
       shell: bash
       run: |
-        if [[ "${{ inputs.secrets }}" == *"|"* ]]; then
-          SECRET_NAME=$(echo "${{ inputs.secrets }}" | cut -d '|' -f 2 | xargs)
+        SECRET_NAMES=()
+        while IFS= read -r line || [[ -n "$line" ]]; do
+          if [ -z "$line" ]; then
+            continue
+          fi
+          if [[ "$line" == *"|"* ]]; then
+            name=$(echo "$line" | cut -d '|' -f 2 | xargs)
+            SECRET_NAMES+=("$name")
+          else
+            name=$(basename "$line" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
+            SECRET_NAMES+=("$name")
+          fi
+        done <<< "${{ inputs.secrets }}"
+        
+        JSON="{"
+        FIRST=true
+        for name in "${SECRET_NAMES[@]}"; do
+          value="${!name}"
+          if [ -n "$value" ]; then
+            # Mask the value
+            echo "::add-mask::$value"
+            if [ "$FIRST" = "true" ]; then
+              FIRST=false
+            else
+              JSON="${JSON},"
+            fi
+            escaped_value=$(echo "$value" | sed 's/"/\\"/g')
+            JSON="${JSON}\"$name\":\"$escaped_value\""
+            unset "$name"
+          fi
+        done
+        JSON="${JSON}}"
+        echo "json=$JSON" >> $GITHUB_OUTPUT
+        
+    - name: validate JSON Access
+      id: validate
+      shell: bash
+      run: |
+        echo "Testing JSON extraction within the composite action..."
+        JSON_VALUE='${{ steps.create-json.outputs.json }}'
+        echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
+        FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
+        if [ -n "$FIRST_KEY" ]; then
+          VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
+          echo "::add-mask::$VALUE"
+          echo "✅ Successfully verified JSON extraction for key: $FIRST_KEY"
+          echo "Value length: ${#VALUE} characters"
         else
-          SECRET_NAME=$(basename "${{ inputs.secrets }}" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
-        fi
-        SECRET_VALUE="${!SECRET_NAME}"
-        if [ -n "$SECRET_VALUE" ]; then
-          echo "::add-mask::$SECRET_VALUE"
-          echo "$SECRET_NAME=$SECRET_VALUE" >> $GITHUB_OUTPUT
-          echo "Set output for $SECRET_NAME"
-          
-          unset "$SECRET_NAME"
-          echo "Cleared $SECRET_NAME from environment"
-        else
-          echo "Warning: No value found for $SECRET_NAME"
+          echo "❌ Failed to extract any keys from JSON output"
+          echo "JSON output may be malformed: $JSON_VALUE"
           exit 1
         fi
-      # env:
-      #   SECRETS_JSON: ${{ steps.set-outputs.outputs.secrets }}
-      # run: |
-      #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \"::add-mask::"+.value+"\""' | bash
-      #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_OUTPUT"' | bash
-      #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_ENV"' | bash
-      
+        
     - name: Debug Vault Output
       shell: bash
       run: |
         echo "Vault output format check:"
-        echo "Has 'secrets' output: ${{ steps.set-outputs.outputs.secrets != '' }}"
         echo "Verify that PROOF_OF_CONCEPT: ${{ steps.set-outputs.outputs.PROOF_OF_CONCEPT != '' }}"
         
