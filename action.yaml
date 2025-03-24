@@ -95,5 +95,5 @@ runs:
       shell: bash
       run: |
         echo "Vault output format check:"
-        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.set-outputs.outputs.PROOF_OF_CONCEPT != '' }}"
+        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.create-json.outputs.PROOF_OF_CONCEPT != '' }}"
         
