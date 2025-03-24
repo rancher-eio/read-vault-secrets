@@ -36,7 +36,7 @@ runs:
       shell: bash
       run: |
         secrets_json='{}'
-        VAULT_OUTPUTS='${{ toJSON(steps.vault-auth.outputs) }}'
+        VAULT_OUTPUTS='${{ toJSON(steps.vault.outputs) }}'
         echo "$VAULT_OUTPUTS" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
           if [[ "$key" != "secrets" && "$key" != "token" ]]; then
             echo "Processing secret: $key"
