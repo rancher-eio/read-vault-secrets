@@ -36,19 +36,19 @@ runs:
       shell: bash
       run: |
         secrets_json='{}'
-        VAULT_OUTPUTS='${{ toJSON(steps.vault.outputs) }}'
-        echo "$VAULT_OUTPUTS" | jq -r 'to_entries[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-          if [[ "$key" != "secrets" && "$key" != "token" ]]; then
-            echo "Processing secret: $key"
-            secrets_json=$(echo "$secrets_json" | jq --arg k "$key" --arg v "$value" '. + {($k): $v}')
-            #echo "::add-mask::$value"
-            echo "$value"
-          fi
-        done
-        echo "vault_data=${secrets_json}" >> $GITHUB_OUTPUT
-        echo "Final secrets JSON: ${secrets_json}"
-
-
+        keys=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]')
+          for key in $keys; do
+            if [[ "$key" != "secrets" && "$key" != "token" ]]; then
+              value=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r --arg k "$key" '.[$k]')
+              echo "Processing secret: $key"
+              echo "::add-mask::$value"
+              secrets_json=$(echo "$secrets_json" | jq --arg k "$key" --arg v "$value" '. + {($k): $v}')
+            fi
+          done
+          echo "json=${secrets_json}" >> $GITHUB_OUTPUT
+          echo "Final secrets JSON structure:"
+          echo "$secrets_json" | jq 'keys'
+          
         
     # - name: Create JSON Output
     #   id: create-json
