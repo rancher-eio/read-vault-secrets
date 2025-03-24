@@ -11,13 +11,10 @@ inputs:
     required: false
     default: secret/data/github-actions/test status
 outputs:
-  secret_values:
+  vault_data:
     description: "JSON containing the vault secrets"
     value: ${{ steps.create-json.outputs.json }}
-# outputs:
-#   PROOF_OF_CONCEPT:
-#     description: "the secret fetched from vault"
-#     value: ${{ steps.vault.outputs.PROOF_OF_CONCEPT }}
+    
 runs:
   using: composite
   steps:
