@@ -35,15 +35,19 @@ runs:
       id: export-json
       shell: bash
       run: |
-        echo "Available secrets from vault:"
-        echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]'
-        for key in $(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]'); do
-          value=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r --arg key "$key" '.[$key]')
-          if [ -n "$value" ]; then
-            echo "::add-mask::$value"
-          fi
+        secrets_json='{}'
+        IFS=$'\n'
+        for secret in ${{ toJSON(steps.vault.outputs) }}; do
+          key=$(echo "$secret" | jq -r '.key')
+          value=$(echo "$secret" | jq -r '.value')
+          secrets_json=$(echo "$secrets_json" | jq --arg k "$key" --arg v "$value" '. + {($k): $v}')
+          echo "::add-mask::$value"
         done
-        echo "data=${{ toJSON(steps.vault.outputs) }}" >> $GITHUB_ENV
+        echo "vault_data=$secrets_json" >> $GITHUB_OUTPUT
+        echo "Processed secrets: $(echo "$secrets_json" | jq -r 'keys | join(", ")')"
+
+
+        
     # - name: Create JSON Output
     #   id: create-json
     #   shell: bash
@@ -86,20 +90,11 @@ runs:
       id: validate
       shell: bash
       run: |
-        echo "Testing JSON extraction within the composite action..."
-        JSON_VALUE='${{ steps.expoer-json.outputs.json }}'
-        echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
-        FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
-        if [ -n "$FIRST_KEY" ]; then
-          VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
-          echo "::add-mask::$VALUE"
-          echo "✅ Successfully verified JSON extraction for key: $FIRST_KEY"
-          echo "Value length: ${#VALUE} characters"
-        else
-          echo "❌ Failed to extract any keys from JSON output"
-          echo "JSON output may be malformed: $JSON_VALUE"
-          exit 1
-        fi
+        echo "Testing JSON extraction..."
+        SECRETS_JSON='${{ steps.vault.outputs.secrets }}'
+        echo "$SECRETS_JSON" | jq empty || (echo "❌ Invalid JSON"; exit 1)
+        FIRST_KEY=$(echo "$SECRETS_JSON" | jq -r 'keys[0]')
+        echo "First secret key: $FIRST_KEY"
         
     - name: Debug Vault Output
       shell: bash
