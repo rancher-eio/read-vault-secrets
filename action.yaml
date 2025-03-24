@@ -28,43 +28,46 @@ runs:
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
+        outputType: json
         exportEnv: false 
         exportToken: false
-           
+        
     - name: Create JSON Output
       id: create-json
       shell: bash
-      env:
-        VAULT_DATA: ${{ steps.vault.outputs.data }}
-        SECRETS_INPUT: ${{ inputs.secrets }}
       run: |
-        JSON="{"
-        FIRST=true
+        SECRET_NAMES=()
         while IFS= read -r line || [[ -n "$line" ]]; do
           if [ -z "$line" ]; then
             continue
           fi
-          path="${line%%#*}"
-          key="${line##*#}"
-          if [ "$path" = "$line" ]; then
-            key="value"  # No # found, use default key
+          name=$(echo "$line" | cut -d '|' -f 2 | xargs)
+          SECRET_NAMES+=("$name")
+        done <<< "${{ inputs.secrets }}"
+        
+        JSON="{"
+        FIRST=true
+        for name in "${SECRET_NAMES[@]}"; do
+          value_expr='${{ steps.vault.outputs.'${name}' }}'
+          value=$(eval echo $value_expr)
+          
+          if [ -n "$value" ]; then
+            echo "::add-mask::$value"
+            if [ "$FIRST" = "true" ]; then
+              FIRST=false
+            else
+              JSON="${JSON},"
+            fi
+            escaped_value=$(echo "$value" | sed 's/"/\\"/g')
+            JSON="${JSON}\"$name\":\"$escaped_value\""
+            
+            unset "$name"
+            export -n "$name"
+            if [ -n "${!name+x}" ]; then
+              echo "Warning: Failed to unset $name variable"
+            fi
           fi
-          value=$(echo "$VAULT_DATA" | jq -r --arg path "$path" --arg key "$key" '.[$path][$key] // empty')
-          if [ -z "$value" ]; then
-            echo "❌ Secret not found: $path#$key"
-            exit 1
-          fi
-          echo "::add-mask::$value"
-
-          if [ "$FIRST" = "true" ]; then
-            FIRST=false
-          else
-            JSON="${JSON},"
-          fi
-          escaped_value=$(echo "$value" | sed 's/"/\\"/g')
-          JSON="${JSON}\"${key}\":\"${escaped_value}\""
-        done <<< "$SECRETS_INPUT"
-
+        done
         JSON="${JSON}}"
         echo "json=$JSON" >> $GITHUB_OUTPUT
         
@@ -74,13 +77,17 @@ runs:
       run: |
         echo "testing JSON extraction..."
         JSON_VALUE='${{ steps.create-json.outputs.json }}'
-        echo "JSON keys: $(echo "$JSON_VALUE" | jq 'keys')"
+        echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
         
-        if echo "$JSON_VALUE" | jq -e '. == {}' > /dev/null; then
-          echo "❌ No secrets found in JSON output"
-          exit 1
+        FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
+        if [ -n "$FIRST_KEY" ]; then
+          VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
+          echo "::add-mask::$VALUE"
+          echo "✅ JSON extraction Successful for key: $FIRST_KEY"
+          echo "Value length: ${#VALUE} characters"
         else
-          echo "✅ JSON validation successful"
+          echo "❌ Failed to extract any keys from JSON output"
+          exit 1
         fi
         
     - name: Debug Vault Output
