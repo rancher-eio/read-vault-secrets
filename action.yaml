@@ -32,7 +32,7 @@ runs:
         exportEnv: false 
         exportToken: false
         
-     - name: Verify JSON Output
+    - name: Verify JSON Output
       shell: bash
       run: |
         echo "Verifying Vault JSON output..."
