@@ -10,10 +10,6 @@ inputs:
     description: "the secrets to fetch from the vault server"
     required: false
     default: secret/data/github-actions/test status
-  export_env_vars:
-    description: "whether to export secret values as environment variables"
-    required: false
-    default: "true"
 outputs:
   secret_values:
     description: "JSON object containing the retrieved secrets"
@@ -34,18 +30,33 @@ runs:
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
-        exportEnv: false
         # outputType: json
+        
+    - name: Debug Vault Output
+      shell: bash
+      run: |
+        echo "Vault output format check:"
+        echo "Has 'secrets' output: ${{ steps.vault.outputs.secrets != '' }}"
+        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.vault.outputs.PROOF_OF_CONCEPT != '' }}"
         
     - name: Export Specific Secrets to Environment and as Outputs
       id: set-outputs
       shell: bash
-      env:
-        SECRETS_JSON: ${{ steps.vault.outputs.secrets }}
-        EXPORT_ENV: ${{ inputs.export_env_vars }}
       run: |
-        echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \"::add-mask::"+.value+"\""' | bash
-        echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_OUTPUT"' | bash
-        if [ "$EXPORT_ENV" = "true" ]; then
-          echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_ENV"' | bash
-        fi        
+        if [ -n "${{ steps.vault.outputs.PROOF_OF_CONCEPT }}" ]; then
+          echo "Using direct access to outputs"
+          echo "PROOF_OF_CONCEPT=${{ steps.vault.outputs.PROOF_OF_CONCEPT }}" >> $GITHUB_OUTPUT
+        elif [ -n "${{ steps.vault.outputs.secrets }}" ]; then
+          echo "Parsing secrets JSON"
+          echo '${{ steps.vault.outputs.secrets }}' | jq -r 'to_entries[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_OUTPUT"' | bash
+        else
+          echo "No outputs found from vault action"
+          exit 1
+        fi
+      # env:
+      #   SECRETS_JSON: ${{ steps.vault.outputs.secrets }}
+      # run: |
+      #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \"::add-mask::"+.value+"\""' | bash
+      #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_OUTPUT"' | bash
+      #   echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \""+.key+"="+.value+"\" >> $GITHUB_ENV"' | bash
+      
