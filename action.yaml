@@ -55,63 +55,95 @@ runs:
     #       echo "Final secrets JSON structure:"
     #       echo "$secrets_json" | jq 'keys'
           
+    # - name: Create JSON Output
+    #   id: create-json
+    #   shell: bash
+    #   run: |
+    #     SECRET_NAMES=()
+    #     while IFS= read -r line || [[ -n "$line" ]]; do
+    #       if [ -z "$line" ]; then
+    #         continue
+    #       fi
+    #       if [[ "$line" == *"|"* ]]; then
+    #         name=$(echo "$line" | cut -d '|' -f 2 | xargs)
+    #         SECRET_NAMES+=("$name")
+    #       else
+    #         name=$(basename "$line" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
+    #         SECRET_NAMES+=("$name")
+    #       fi
+    #     done <<< "${{ inputs.secrets }}"
+        
+    #     JSON="{"
+    #     FIRST=true
+    #     for name in "${SECRET_NAMES[@]}"; do
+    #       value="${!name}"
+    #       if [ -n "$value" ]; then
+    #         # Mask the value
+    #         echo "::add-mask::$value"
+    #         if [ "$FIRST" = "true" ]; then
+    #           FIRST=false
+    #         else
+    #           JSON="${JSON},"
+    #         fi
+    #         escaped_value=$(echo "$value" | sed 's/"/\\"/g')
+    #         JSON="${JSON}\"$name\":\"$escaped_value\""
+    #         unset "$name"
+    #       fi
+    #     done
+    #     JSON="${JSON}}"
+    #     echo "json=$JSON" >> $GITHUB_OUTPUT
     - name: Create JSON Output
       id: create-json
       shell: bash
       run: |
-        SECRET_NAMES=()
-        while IFS= read -r line || [[ -n "$line" ]]; do
-          if [ -z "$line" ]; then
-            continue
-          fi
-          if [[ "$line" == *"|"* ]]; then
-            name=$(echo "$line" | cut -d '|' -f 2 | xargs)
-            SECRET_NAMES+=("$name")
-          else
-            name=$(basename "$line" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
-            SECRET_NAMES+=("$name")
-          fi
-        done <<< "${{ inputs.secrets }}"
-        
+        VAULT_OUTPUTS='${{ toJSON(steps.vault.outputs) }}'
+        AVAILABLE_KEYS=$(echo "$VAULT_OUTPUTS" | jq -r 'keys[]')
         JSON="{"
         FIRST=true
-        for name in "${SECRET_NAMES[@]}"; do
-          value="${!name}"
-          if [ -n "$value" ]; then
-            # Mask the value
+        for key in $AVAILABLE_KEYS; do
+          if [[ "$key" != "secrets" && "$key" != "token" ]]; then
+            value=$(echo "$VAULT_OUTPUTS" | jq -r --arg k "$key" '.[$k]')
             echo "::add-mask::$value"
             if [ "$FIRST" = "true" ]; then
               FIRST=false
             else
               JSON="${JSON},"
             fi
-            escaped_value=$(echo "$value" | sed 's/"/\\"/g')
-            JSON="${JSON}\"$name\":\"$escaped_value\""
-            unset "$name"
+            escaped_value=$(echo "$value" | jq -aRs .)
+            JSON="${JSON}\"$key\":$escaped_value"
           fi
         done
         JSON="${JSON}}"
         echo "json=$JSON" >> $GITHUB_OUTPUT
+        echo "JSON keys extracted: $(echo "$JSON" | jq -r 'keys')"
         
-    - name: validate JSON Access
+    - name: Validate JSON Access
       id: validate
       shell: bash
       run: |
-        echo "Testing JSON extraction within the composite action..."
+        echo "testing JSON extraction..."
         JSON_VALUE='${{ steps.create-json.outputs.json }}'
-        echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
-        FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
-        if [ -n "$FIRST_KEY" ]; then
-          VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
-          echo "::add-mask::$VALUE"
-          echo "✅ Successfully verified JSON extraction for key: $FIRST_KEY"
-          echo "Value length: ${#VALUE} characters"
-        else
-          echo "❌ Failed to extract any keys from JSON output"
-          echo "JSON output may be malformed: $JSON_VALUE"
+        if ! echo "$JSON_VALUE" | jq . >/dev/null 2>&1; then
+          echo "❌ Invalid JSON format"
           exit 1
         fi
-        
+        KEYS=$(echo "$JSON_VALUE" | jq -r 'keys | length')
+        if [ "$KEYS" -gt 0 ]; then
+          echo "✅ Successfully extracted $KEYS keys from JSON output"
+          echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
+          FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
+          if [ -n "$FIRST_KEY" ]; then
+            VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
+            echo "::add-mask::$VALUE"
+            echo "✅ Successfully verified JSON extraction for key: $FIRST_KEY"
+            echo "Value length: ${#VALUE} characters"
+          fi
+        else
+          echo "❌ Failed to extract any keys from JSON output"
+          echo "JSON output appears to be empty: $JSON_VALUE"
+          exit 1
+        fi       
+     
     - name: Debug Vault Output
       shell: bash
       run: |
