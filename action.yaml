@@ -13,8 +13,11 @@ inputs:
 outputs:
   vault_data:
     description: "JSON containing the vault secrets"
-    value: ${{ steps.export-json.outputs.json }}
-    
+    value: ${{ steps.create-json.outputs.json }}
+# outputs:
+#   vault_data:
+#     description: "JSON containing the vault secrets"
+#     value: ${{ steps.export-json.outputs.json }}    
 runs:
   using: composite
   steps:
@@ -102,4 +105,4 @@ runs:
       shell: bash
       run: |
         echo "Vault output format check:"
-        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.create-json.outputs.PROOF_OF_CONCEPT != '' }}"
+        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.create-json.outputs.PROOF_OF_CONCEPT != '' }}
