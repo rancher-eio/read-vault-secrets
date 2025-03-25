@@ -31,62 +31,62 @@ runs:
         exportEnv: false 
         #exportToken: false
 
-    - name: Export Vault Outputs as JSON
-      id: export-json
-      shell: bash
-      run: |
-        secrets_json='{}'
-        keys=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]')
-          for key in $keys; do
-            if [[ "$key" != "secrets" && "$key" != "token" ]]; then
-              value=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r --arg k "$key" '.[$k]')
-              echo "Processing secret: $key"
-              echo "::add-mask::$value"
-              secrets_json=$(echo "$secrets_json" | jq --arg k "$key" --arg v "$value" '. + {($k): $v}')
-            fi
-          done
-          echo "json=${secrets_json}" >> $GITHUB_OUTPUT
-          echo "Final secrets JSON structure:"
-          echo "$secrets_json" | jq 'keys'
-          
-        
-    # - name: Create JSON Output
-    #   id: create-json
+    # - name: Export Vault Outputs as JSON
+    #   id: export-json
     #   shell: bash
     #   run: |
-    #     SECRET_NAMES=()
-    #     while IFS= read -r line || [[ -n "$line" ]]; do
-    #       if [ -z "$line" ]; then
-    #         continue
-    #       fi
-    #       if [[ "$line" == *"|"* ]]; then
-    #         name=$(echo "$line" | cut -d '|' -f 2 | xargs)
-    #         SECRET_NAMES+=("$name")
-    #       else
-    #         name=$(basename "$line" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
-    #         SECRET_NAMES+=("$name")
-    #       fi
-    #     done <<< "${{ inputs.secrets }}"
-        
-    #     JSON="{"
-    #     FIRST=true
-    #     for name in "${SECRET_NAMES[@]}"; do
-    #       value="${!name}"
-    #       if [ -n "$value" ]; then
-    #         # Mask the value
-    #         echo "::add-mask::$value"
-    #         if [ "$FIRST" = "true" ]; then
-    #           FIRST=false
-    #         else
-    #           JSON="${JSON},"
+    #     secrets_json='{}'
+    #     keys=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]')
+    #       for key in $keys; do
+    #         if [[ "$key" != "secrets" && "$key" != "token" ]]; then
+    #           value=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r --arg k "$key" '.[$k]')
+    #           echo "Processing secret: $key"
+    #           echo "::add-mask::$value"
+    #           secrets_json=$(echo "$secrets_json" | jq --arg k "$key" --arg v "$value" '. + {($k): $v}')
     #         fi
-    #         escaped_value=$(echo "$value" | sed 's/"/\\"/g')
-    #         JSON="${JSON}\"$name\":\"$escaped_value\""
-    #         unset "$name"
-    #       fi
-    #     done
-    #     JSON="${JSON}}"
-    #     echo "json=$JSON" >> $GITHUB_OUTPUT
+    #       done
+    #       echo "json=${secrets_json}" >> $GITHUB_OUTPUT
+    #       echo "Final secrets JSON structure:"
+    #       echo "$secrets_json" | jq 'keys'
+          
+        
+    - name: Create JSON Output
+      id: create-json
+      shell: bash
+      run: |
+        SECRET_NAMES=()
+        while IFS= read -r line || [[ -n "$line" ]]; do
+          if [ -z "$line" ]; then
+            continue
+          fi
+          if [[ "$line" == *"|"* ]]; then
+            name=$(echo "$line" | cut -d '|' -f 2 | xargs)
+            SECRET_NAMES+=("$name")
+          else
+            name=$(basename "$line" | tr '[:lower:]' '[:upper:]' | tr ' ' '_')
+            SECRET_NAMES+=("$name")
+          fi
+        done <<< "${{ inputs.secrets }}"
+        
+        JSON="{"
+        FIRST=true
+        for name in "${SECRET_NAMES[@]}"; do
+          value="${!name}"
+          if [ -n "$value" ]; then
+            # Mask the value
+            echo "::add-mask::$value"
+            if [ "$FIRST" = "true" ]; then
+              FIRST=false
+            else
+              JSON="${JSON},"
+            fi
+            escaped_value=$(echo "$value" | sed 's/"/\\"/g')
+            JSON="${JSON}\"$name\":\"$escaped_value\""
+            unset "$name"
+          fi
+        done
+        JSON="${JSON}}"
+        echo "json=$JSON" >> $GITHUB_OUTPUT
         
     - name: validate JSON Access
       id: validate
