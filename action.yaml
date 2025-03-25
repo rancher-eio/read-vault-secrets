@@ -14,10 +14,7 @@ outputs:
   vault_data:
     description: "JSON containing the vault secrets"
     value: ${{ steps.create-json.outputs.json }}
-# outputs:
-#   vault_data:
-#     description: "JSON containing the vault secrets"
-#     value: ${{ steps.export-json.outputs.json }}    
+    
 runs:
   using: composite
   steps:
@@ -33,6 +30,12 @@ runs:
         # outputType: json
         exportEnv: false 
         #exportToken: false
+
+    - name: Debug Available Outputs
+      shell: bash
+      run: |
+        echo "Available vault step outputs (this will not show secret values):"
+        echo '${{ toJSON(steps.vault.outputs) }}' | jq 'keys'
 
     # - name: Export Vault Outputs as JSON
     #   id: export-json
@@ -52,7 +55,6 @@ runs:
     #       echo "Final secrets JSON structure:"
     #       echo "$secrets_json" | jq 'keys'
           
-        
     - name: Create JSON Output
       id: create-json
       shell: bash
@@ -95,14 +97,23 @@ runs:
       id: validate
       shell: bash
       run: |
-        echo "Testing JSON extraction..."
-        SECRETS_JSON='${{ steps.vault.outputs.secrets }}'
-        echo "$SECRETS_JSON" | jq empty || (echo "❌ Invalid JSON"; exit 1)
-        FIRST_KEY=$(echo "$SECRETS_JSON" | jq -r 'keys[0]')
-        echo "First secret key: $FIRST_KEY"
+        echo "Testing JSON extraction within the composite action..."
+        JSON_VALUE='${{ steps.create-json.outputs.json }}'
+        echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
+        FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
+        if [ -n "$FIRST_KEY" ]; then
+          VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
+          echo "::add-mask::$VALUE"
+          echo "✅ Successfully verified JSON extraction for key: $FIRST_KEY"
+          echo "Value length: ${#VALUE} characters"
+        else
+          echo "❌ Failed to extract any keys from JSON output"
+          echo "JSON output may be malformed: $JSON_VALUE"
+          exit 1
+        fi
         
     - name: Debug Vault Output
       shell: bash
       run: |
         echo "Vault output format check:"
-        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.create-json.outputs.PROOF_OF_CONCEPT != '' }}
+        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.create-json.outputs.PROOF_OF_CONCEPT != '' }}"
