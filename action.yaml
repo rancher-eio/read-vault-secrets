@@ -11,12 +11,9 @@ inputs:
     required: false
     default: secret/data/github-actions/test status
 outputs:
-  declared:
-    description: "a declared output"
-    value: ${{ steps.output.outputs.declared }}
-  json:
-    description: "all outputs in JSON format"
-    value: ${{ steps.output.outputs.json }}
+  secrets:
+    description: "the secrets fetched from the vault server"
+    value: ${{ steps.output.outputs.secrets }}
 runs:
   using: composite
   steps:
@@ -37,9 +34,7 @@ runs:
       id: output
       with:
         script: |
-          core.setOutput("declared", "value");
-          core.setOutput("undeclared", "value");
-          core.setOutput("json", ${{ toJSON(steps.vault.outputs) }});
+          core.setOutput("secrets", ${{ toJSON(steps.vault.outputs) }});
           for (const [key, value] of Object.entries(${{ toJSON(steps.vault.outputs) }})) {
             core.setOutput(key, value);
           }
