@@ -21,6 +21,5 @@ runs:
         url: ${{ inputs.address }}
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
-        jwtGithubAudience: "https://github.com/${{ github.repository_owner }}"
         secrets: ${{ inputs.secrets }}
         exportEnv: true
