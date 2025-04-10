@@ -10,6 +10,12 @@ inputs:
     description: "the secrets to fetch from the vault server"
     required: false
     default: secret/data/github-actions/test status
+  maskJSON:
+    required: false
+    default: "true"
+  maskSecrets:
+    required: false
+    default: "true"
 outputs:
   secrets:
     description: "the secrets fetched from the vault server"
@@ -35,7 +41,16 @@ runs:
       id: output
       with:
         script: |
+          const maskJSON    = (core.getInput('maskJSON',    { required: false }) || 'true').toLowerCase() != 'false';
+          const maskSecrets = (core.getInput('maskSecrets', { required: false }) || 'true').toLowerCase() != 'false';
+          
+          if (maskJSON == true) {
+            core.setSecret(${{ toJSON(steps.vault.outputs) }});
+          }
           core.setOutput("secrets", ${{ toJSON(steps.vault.outputs) }});
           for (const [key, value] of Object.entries(${{ toJSON(steps.vault.outputs) }})) {
+            if (maskSecrets == true) {
+              core.setSecret(value);
+            }
             core.setOutput(key, value);
           }
