@@ -41,8 +41,8 @@ runs:
       id: output
       with:
         script: |
-          const maskJSON    = (core.getInput('maskJSON',    { required: false }) || 'true').toLowerCase() != 'false';
-          const maskSecrets = (core.getInput('maskSecrets', { required: false }) || 'true').toLowerCase() != 'false';
+          const maskJSON    = ${{ inputs.maskJSON }} != 'false';
+          const maskSecrets = ${{ inputs.maskSecrets }} != 'false';
           
           if (maskJSON == true) {
             core.setSecret(${{ toJSON(steps.vault.outputs) }});
