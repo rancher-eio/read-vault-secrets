@@ -16,7 +16,7 @@ inputs:
   cloudflare_access_client_secret:
     description: "Cloudflare Access Client Secret"
 outputs:
-  vault_data:
+  vault-secrets:
     description: "JSON containing the vault secrets"
     value: ${{ steps.create-json.outputs.json }}
     
