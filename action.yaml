@@ -16,9 +16,9 @@ inputs:
   cloudflare_access_client_secret:
     description: "Cloudflare Access Client Secret"
 outputs:
-  vault-secrets:
-    description: "JSON containing the vault secrets"
-    value: ${{ steps.create-json.outputs.json }}
+  secrets:
+    description: "the secrets fetched from the vault server(json formatted)"
+    value: ${{ steps.output.outputs.secrets }}
     
 runs:
   using: composite
@@ -37,8 +37,13 @@ runs:
           CF-Access-Client-Secret: ${{ inputs.cloudflare_access_client_secret }}
         exportEnv: false 
         exportToken: false
-    - name: Debug Available Outputs
-      shell: bash
-      run: |
-        echo "Available vault step outputs:"
-        echo '${{ toJSON(steps.vault.outputs) }}' | jq 'keys'
+        
+    - name: Configure Outputs
+      uses: actions/github-script@v7
+      id: output
+      with:
+        script: |
+          core.setOutput("secrets", ${{ toJSON(steps.vault.outputs) }});
+          for (const [key, value] of Object.entries(${{ toJSON(steps.vault.outputs) }})) {
+            core.setOutput(key, value);
+          }
