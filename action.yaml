@@ -5,11 +5,16 @@ inputs:
   address:
     description: "the address of a deployed vault server"
     required: false
-    default: https://vault.rancher.engineering
+    default: https://vault.rancher.io
   secrets:
     description: "the secrets to fetch from the vault server"
     required: false
     default: secret/data/github-actions/test status
+  cloudflare_access_client_id:
+    description: "Cloudflare Access Client ID"
+    required: true
+  cloudflare_access_client_secret:
+    description: "Cloudflare Access Client Secret"
 outputs:
   vault_data:
     description: "JSON containing the vault secrets"
@@ -17,7 +22,7 @@ outputs:
     
 runs:
   using: composite
-  steps:
+  steps:   
     - name: Read Secrets from Vault
       uses: hashicorp/vault-action@v3
       id: vault
@@ -27,89 +32,15 @@ runs:
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
         secrets: ${{ inputs.secrets }}
-        # outputType: json
+        extraHeaders: |
+          {
+            "CF-Access-Client-Id": "${{ inputs.cloudflare_access_client_id }}",
+            "CF-Access-Client-Secret": "${{ inputs.cloudflare_access_client_secret }}"
+          }
         exportEnv: false 
-        #exportToken: false
-
+        exportToken: false
     - name: Debug Available Outputs
       shell: bash
       run: |
-        echo "Available vault step outputs (this will not show secret values):"
+        echo "Available vault step outputs:"
         echo '${{ toJSON(steps.vault.outputs) }}' | jq 'keys'
-
-    # - name: Export Vault Outputs as JSON
-    #   id: export-json
-    #   shell: bash
-    #   run: |
-    #     secrets_json='{}'
-    #     keys=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r 'keys[]')
-    #       for key in $keys; do
-    #         if [[ "$key" != "secrets" && "$key" != "token" ]]; then
-    #           value=$(echo '${{ toJSON(steps.vault.outputs) }}' | jq -r --arg k "$key" '.[$k]')
-    #           echo "Processing secret: $key"
-    #           echo "::add-mask::$value"
-    #           secrets_json=$(echo "$secrets_json" | jq --arg k "$key" --arg v "$value" '. + {($k): $v}')
-    #         fi
-    #       done
-    #       echo "json=${secrets_json}" >> $GITHUB_OUTPUT
-    #       echo "Final secrets JSON structure:"
-    #       echo "$secrets_json" | jq 'keys'
-
-    - name: Create JSON Output
-      id: create-json
-      shell: bash
-      run: |
-        VAULT_OUTPUTS='${{ toJSON(steps.vault.outputs) }}'
-        AVAILABLE_KEYS=$(echo "$VAULT_OUTPUTS" | jq -r 'keys[]')
-        JSON="{"
-        FIRST=true
-        for key in $AVAILABLE_KEYS; do
-          if [[ "$key" != "secrets" && "$key" != "token" ]]; then
-            value=$(echo "$VAULT_OUTPUTS" | jq -r --arg k "$key" '.[$k]')
-            echo "::add-mask::$value"
-            if [ "$FIRST" = "true" ]; then
-              FIRST=false
-            else
-              JSON="${JSON},"
-            fi
-            escaped_value=$(echo "$value" | jq -aRs .)
-            JSON="${JSON}\"$key\":$escaped_value"
-          fi
-        done
-        JSON="${JSON}}"
-        echo "json=$JSON" >> $GITHUB_OUTPUT
-        echo "JSON keys extracted: $(echo "$JSON" | jq -r 'keys')"
-        
-    - name: Validate JSON Access
-      id: validate
-      shell: bash
-      run: |
-        echo "testing JSON extraction..."
-        JSON_VALUE='${{ steps.create-json.outputs.json }}'
-        if ! echo "$JSON_VALUE" | jq . >/dev/null 2>&1; then
-          echo "❌ Invalid JSON format"
-          exit 1
-        fi
-        KEYS=$(echo "$JSON_VALUE" | jq -r 'keys | length')
-        if [ "$KEYS" -gt 0 ]; then
-          echo "✅ Successfully extracted $KEYS keys from JSON output"
-          echo "JSON structure: $(echo "$JSON_VALUE" | jq -r 'keys')"
-          
-          FIRST_KEY=$(echo "$JSON_VALUE" | jq -r 'keys[0] // empty')
-          if [ -n "$FIRST_KEY" ]; then
-            VALUE=$(echo "$JSON_VALUE" | jq -r --arg key "$FIRST_KEY" '.[$key]')
-            echo "::add-mask::$VALUE"
-            echo "✅ Successfully verified JSON extraction for key: $FIRST_KEY"
-            echo "Value length: ${#VALUE} characters"
-          fi
-        else
-          echo "❌ Failed to extract any keys from JSON output"
-          echo "JSON output appears to be empty: $JSON_VALUE"
-          exit 1
-        fi       
-     
-    - name: Debug Vault Output
-      shell: bash
-      run: |
-        echo "Vault output format check:"
-        echo "Verify that PROOF_OF_CONCEPT: ${{ steps.create-json.outputs.PROOF_OF_CONCEPT != '' }}"
