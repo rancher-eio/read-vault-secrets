@@ -28,7 +28,9 @@ outputs:
     
 runs:
   using: composite
-  steps: 
+  steps:
+  
+    # add OIDC Host to /etc/hosts because --accept-dns replaces all endpoints and breaks github api access  
     - name: Preserve GitHub OIDC Token Endpoint
       shell: bash
       run: |
@@ -37,8 +39,7 @@ runs:
         OIDC_IP=$(dig +short $OIDC_HOST)
         echo "OIDC Endpoint IP: $OIDC_IP"
         echo "$OIDC_IP $OIDC_HOST" | sudo tee -a /etc/hosts  
-        #add OIDC Host to /etc/hosts because --accept-dns replaces all endpoints and breaks github api access   
-        
+                
     - name: Setup Tailscale
       shell: bash
       run: |
