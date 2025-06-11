@@ -29,14 +29,14 @@ outputs:
 runs:
   using: composite
   steps: 
-    - name: Get GitHub OIDC Token
-      id: oidc
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const token = await core.getIDToken();
-          core.setOutput('token', token);
-          core.setSecret(token);
+    # - name: Get GitHub OIDC Token
+    #   id: oidc
+    #   uses: actions/github-script@v7
+    #   with:
+    #     script: |
+    #       const token = await core.getIDToken();
+    #       core.setOutput('token', token);
+    #       core.setSecret(token);
                  
     - name: Setup Tailscale
       shell: bash
@@ -81,7 +81,7 @@ runs:
       id: vault
       with:
         method: jwt
-        token: ${{ steps.oidc.outputs.token }}
+        # token: ${{ steps.oidc.outputs.token }}
         url: ${{ inputs.address }}
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
