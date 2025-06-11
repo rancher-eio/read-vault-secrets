@@ -32,7 +32,7 @@ runs:
     - name: Snapshot public DNS
       shell: bash
       run: |
-        cp /etc/resolv.conf /etc/resolv.conf.orig
+        sudo cp /etc/resolv.conf /etc/resolv.conf.orig
           
     - name: Setup Tailscale
       shell: bash
@@ -51,7 +51,7 @@ runs:
         echo "Waiting for connection to stabilize..."
         sleep 10
         tailscale status
-        cp /etc/resolv.conf /etc/resolv.conf.ts
+        sudo cp /etc/resolv.conf /etc/resolv.conf.ts
 
     - name: Restore public DNS for OIDC
       shell: bash
