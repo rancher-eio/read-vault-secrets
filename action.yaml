@@ -67,7 +67,7 @@ runs:
       id: vault
       with:
         method: jwt
-        jwt: ${{ steps.oidc.outputs.token }}
+        token: ${{ steps.oidc.outputs.token }}
         url: ${{ inputs.address }}
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
