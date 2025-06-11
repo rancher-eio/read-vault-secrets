@@ -69,7 +69,7 @@ runs:
         sleep 15
         tailscale status
         
-`       echo "Verifying connectivity after Tailscale setup..."
+        echo "Verifying connectivity after Tailscale setup..."
         curl -s -I https://api.github.com && echo "GitHub API accessible" || echo "GitHub API issue"
 
     - name: Test Vault connectivity
