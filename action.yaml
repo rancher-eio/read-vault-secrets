@@ -5,7 +5,7 @@ inputs:
   address:
     description: "the address of a deployed vault server"
     required: false
-    default: http://10.100.200.144:8200
+    default: http://vault.ts.rancher.kitchen:8200
   secrets:
     description: "the secrets to fetch from the vault server"
     required: false
@@ -29,15 +29,6 @@ outputs:
 runs:
   using: composite
   steps: 
-    # - name: Get GitHub OIDC Token
-    #   id: oidc
-    #   uses: actions/github-script@v7
-    #   with:
-    #     script: |
-    #       const token = await core.getIDToken();
-    #       core.setOutput('token', token);
-    #       core.setSecret(token);
-    
     - name: Preserve GitHub OIDC Token Endpoint
       shell: bash
       run: |
@@ -45,25 +36,14 @@ runs:
         echo "OIDC Endpoint Host: $OIDC_HOST"
         OIDC_IP=$(dig +short $OIDC_HOST)
         echo "OIDC Endpoint IP: $OIDC_IP"
-        echo "$OIDC_IP $OIDC_HOST" | sudo tee -a /etc/hosts    
-
+        echo "$OIDC_IP $OIDC_HOST" | sudo tee -a /etc/hosts  
+        #add OIDC Host to /etc/hosts because --accept-dns replaces all endpoints and breaks github api access   
+        
     - name: Setup Tailscale
       shell: bash
       run: |
         echo "Installing Tailscale..."
         curl -fsSL https://tailscale.com/install.sh | sudo sh
-
-        # sudo cp /etc/resolv.conf /etc/resolv.conf.backup
-        # echo "Original DNS config backed up"
-        
-        # echo "Setting temporary DNS for initial connection..."
-        # sudo tee /etc/resolv.conf > /dev/null << EOF
-        # nameserver 10.100.0.10
-        # nameserver 8.8.8.8
-        # nameserver 1.1.1.1
-        # search headscale.svc.cluster.local svc.cluster.local cluster.local
-        # EOF
-        
         echo "Connecting to Tailscale network..."
         sudo tailscale up \
           --login-server=${{ inputs.headscale_server }} \
@@ -71,16 +51,12 @@ runs:
           --hostname=${{ inputs.hostname_prefix }}-${{ github.run_id }} \
           --accept-routes \
           --accept-dns 
-          
         echo "Tailscale connection status:"
         tailscale status
         echo "Waiting for connection to stabilize..."
         sleep 10
         tailscale status
         
-        echo "Verifying connectivity after Tailscale setup..."
-        curl -s -I https://api.github.com && echo "GitHub API accessible" || echo "GitHub API issue"
-
     - name: Test Vault connectivity
       shell: bash
       run: |
