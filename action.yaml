@@ -29,14 +29,10 @@ outputs:
 runs:
   using: composite
   steps: 
-    - name: Get GitHub OIDC Token
-      id: oidc
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const token = await core.getIDToken();
-          core.setOutput('token', token);
-          core.setSecret(token);
+    - name: Snapshot public DNS
+      shell: bash
+      run: |
+        cp /etc/resolv.conf /etc/resolv.conf.orig
           
     - name: Setup Tailscale
       shell: bash
@@ -55,6 +51,26 @@ runs:
         echo "Waiting for connection to stabilize..."
         sleep 10
         tailscale status
+        cp /etc/resolv.conf /etc/resolv.conf.ts
+
+        - name: Restore public DNS for OIDC
+      shell: bash
+      run: |
+        sudo cp /etc/resolv.conf.orig /etc/resolv.conf
+
+    - name: Get GitHub OIDC Token
+      id: oidc
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const token = await core.getIDToken();
+          core.setOutput('token', token);
+          core.setSecret(token);
+
+    - name: Re-apply Tailscale DNS for Vault
+      shell: bash
+      run: |
+        sudo cp /etc/resolv.conf.ts /etc/resolv.conf
         
     - name: Test Vault connectivity
       shell: bash
