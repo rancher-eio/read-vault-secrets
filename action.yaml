@@ -53,7 +53,7 @@ runs:
         tailscale status
         cp /etc/resolv.conf /etc/resolv.conf.ts
 
-        - name: Restore public DNS for OIDC
+    - name: Restore public DNS for OIDC
       shell: bash
       run: |
         sudo cp /etc/resolv.conf.orig /etc/resolv.conf
