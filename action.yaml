@@ -62,13 +62,15 @@ runs:
           --hostname=${{ inputs.hostname_prefix }}-${{ github.run_id }} \
           --accept-routes \
           --accept-dns 
+          
         echo "Tailscale connection status:"
         tailscale status
         echo "Waiting for connection to stabilize..."
-        sleep 10
+        sleep 15
         tailscale status
+        
 `       echo "Verifying connectivity after Tailscale setup..."
-        curl -s -I https://api.github.com && echo "✓ GitHub API accessible" || echo "⚠ GitHub API issue"
+        curl -s -I https://api.github.com && echo "GitHub API accessible" || echo "GitHub API issue"
 
     - name: Test Vault connectivity
       shell: bash
@@ -81,7 +83,6 @@ runs:
       id: vault
       with:
         method: jwt
-        # token: ${{ steps.oidc.outputs.token }}
         url: ${{ inputs.address }}
         path: ${{ github.repository_owner }}
         role: ${{ github.event.repository.name }}
