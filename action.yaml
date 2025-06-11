@@ -5,7 +5,7 @@ inputs:
   address:
     description: "the address of a deployed vault server"
     required: false
-    default: http://vault.ts.rancher.kitchen:8200
+    default: http://10.100.200.144:8200
   secrets:
     description: "the secrets to fetch from the vault server"
     required: false
@@ -60,8 +60,8 @@ runs:
           --login-server=${{ inputs.headscale_server }} \
           --authkey=${{ inputs.tailscale_authkey }} \
           --hostname=${{ inputs.hostname_prefix }}-${{ github.run_id }} \
-          --accept-routes \
-          --accept-dns 
+          --accept-routes #\
+          # --accept-dns 
           
         echo "Tailscale connection status:"
         tailscale status
