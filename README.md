@@ -4,6 +4,11 @@ This Action allows (authorized) repositories to fetch secrets from a deployment 
 
 All you have to do is tell it which secrets to fetch, and where to put them.
 
+> [!IMPORTANT]
+> All engineers in ECM should familiarize themselves with [this](https://github.com/rancher/security-team/blob/main/docs/guides/security-checklist-devs.md#working-with-github-actions-gha-or-apps) set of guidelines from the Rancher Security Team.
+> In particular you will want to note the limits around forks and secrets. 
+> - Limit the use of secrets in PRs whenever possible. PRs from external forks must not have access to secrets.
+
 ## Example Workflow
 
 This is a complete example of a workflow that includes everything: permissions, reading secrets, and using them. A more detailed explanation follows after the example.
