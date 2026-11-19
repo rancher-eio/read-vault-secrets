@@ -40,6 +40,10 @@ jobs:
 
 ## Details
 
+### Triggers
+
+The action works with all workflow triggers, including `schedule`. The action uses the name of the repository as the Vault role. It reads that name from the `GITHUB_REPOSITORY` environment variable, because the event of some triggers has no repository object.
+
 ### Required Permissions
 
 We rely on JWT tokens issued by GitHub's OIDC provider ([docs](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)) for authentication with Vault.
