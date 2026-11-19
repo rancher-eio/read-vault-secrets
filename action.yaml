@@ -13,6 +13,14 @@ inputs:
 runs:
   using: composite
   steps:
+    # The Vault role is the name of the repository. The event of some
+    # triggers, for example schedule, has no repository object, so
+    # github.event.repository.name is empty. GITHUB_REPOSITORY is set for
+    # every trigger.
+    - name: Get the Vault role
+      id: role
+      shell: bash
+      run: echo "role=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
     - name: Read Secrets from Vault"
       uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
       id: vault
@@ -20,6 +28,6 @@ runs:
         method: jwt
         url: ${{ inputs.address }}
         path: ${{ github.repository_owner }}
-        role: ${{ github.event.repository.name }}
+        role: ${{ steps.role.outputs.role }}
         secrets: ${{ inputs.secrets }}
         exportEnv: true
