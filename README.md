@@ -40,6 +40,23 @@ jobs:
 
 ## Details
 
+### Vault Role
+
+The action logs in to Vault with a role. The `role` input sets the role. The default value is `github.event.repository.name`. This is the name of the repository in the event data of the trigger that started the workflow.
+
+The event of some triggers, for example `schedule`, has no repository object. For these triggers, the default value is empty and the action stops with an error. If your workflow uses such a trigger, set the `role` input to the name of your repository without the owner. For example, for `rancher-eio/my-repository`, use `my-repository`:
+
+```yaml
+    steps:
+    - uses: rancher-eio/read-vault-secrets@main
+      with:
+        role: my-repository
+        secrets: |
+          secret/data/github/repo/${{ github.repository }}/dockerhub/credentials username | DOCKER_USERNAME
+```
+
+The role must be the name of the repository that runs the workflow. If you set the `role` input to a different name, the Vault login fails. You cannot use the `role` input to read the secrets of a different repository.
+
 ### Required Permissions
 
 We rely on JWT tokens issued by GitHub's OIDC provider ([docs](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)) for authentication with Vault.
