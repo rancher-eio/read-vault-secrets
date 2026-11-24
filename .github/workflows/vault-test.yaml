@@ -1,0 +1,67 @@
+name: Vault Test
+on:
+  workflow_call:
+    inputs:
+      container:
+        default: ubuntu:22.04
+        required: false
+        type: string
+      runs-on:
+        default: ubuntu-22.04
+        required: false
+        type: string
+      from-secret:
+        type: string
+        default: secret/data/github-actions/test
+        required: false
+      read-key: 
+        type: string
+        default: status
+        required: false
+      export-as:
+        type: string
+        default: PROOF_OF_CONCEPT
+        required: false
+      expected-value:
+        type: string
+        default: success
+        required: false
+  workflow_dispatch:
+    inputs:
+      runs-on:
+        default: ubuntu-latest
+        required: false
+        type: string
+      from-secret:
+        type: string
+        default: secret/data/github-actions/test
+        required: false
+      read-key: 
+        type: string
+        default: status
+        required: false
+      export-as:
+        type: string
+        default: PROOF_OF_CONCEPT
+        required: false
+      expected-value:
+        type: string
+        default: success
+        required: false
+
+jobs:
+  test:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ${{ inputs.runs-on }}
+    container: ${{ inputs.container }}
+    steps:
+    - id: fetch
+      uses: rancher-eio/read-vault-secrets@9f345b654018061f267191a97fb88d5231ae1ae2 # pull/7
+      with:
+        secrets: |
+          ${{ inputs.from-secret }} ${{ inputs.read-key }} | ${{ inputs.export-as }}
+    - id: validate
+      run: |
+        test "${{ env[inputs.export-as] }}" = "${{ inputs.expected-value }}"
